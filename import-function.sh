@@ -190,22 +190,55 @@ _import_function() { #{{{
   read F_TOP F_BOTTOM < <(_search_func ${FROM} ${FUNC_NAME})
   read T_TOP T_BOTTOM < <(_search_func ${TO} ${FUNC_NAME})
   if [[ -z "${F_TOP}" ]] || [[ -z "${F_BOTTOM}" ]]; then
-    __error_end "Function not found in ${FROM} : ${FUNC_NAME}"
+    __show_error " Function not found in ${FROM} : ${FUNC_NAME}"
+    return 1
   fi
   if [[ -z "${T_TOP}" ]] || [[ -z "${T_BOTTOM}" ]]; then
-    __error_end "Function not found in ${TO} : ${FUNC_NAME}"
+    __show_error "Function not found in ${TO} : ${FUNC_NAME}"
+    return 1
   fi
 
   _import "${FROM}" "${F_TOP}" "${F_BOTTOM}" "${TO}" "${T_TOP}" "${T_BOTTOM}" > ${OUT_FILE}
+  return $?
 }
 #}}}
 
-_backup() { #{{{
-  local F="$1"
-  [[ ! -f "$F" ]] && return
-  local D="${F%.*}_`date '+%Y%m%d-%H%M%S'`.${F##*.}"
-  cp -p "$F" "$D"
-  return $?
+_import_file() { #{{{
+  local FROM="$1"
+  local TO="$2"
+  local TMP
+
+  local TMP_TO=`__make_tmp`
+  cat "${TO}" > ${TMP_TO}
+
+  echo -e "${C_CYAN}Import ${FROM} functions to ${TO}${C_OFF}"
+  while read FUNC; do
+    echo -en "  ${FROM}::${FUNC}"
+    TMP=`__make_tmp`
+    _import_function "${FROM}" "${TMP_TO}" "${FUNC}" "${TMP}"
+    if [[ $? -ne 0 ]]; then
+      echo -e " [${C_RED}FAILED${C_OFF}]"
+      return 1
+    fi
+    mv ${TMP} ${TMP_TO} && echo -e " [${C_GREEN}OK${C_OFF}]"
+  done < <(_list_function "${FROM}")
+  cat ${TMP_TO} > ${TO}
+}
+#}}}
+
+_list_function() { #{{{
+  local FILE="$1"
+  sed -nre 's|^[ \t]*(__[a-zA-Z0-9_-]+)\(\)[ \t]*\{.*|\1|p' "$FILE"
+}
+#}}}
+
+_make_backup_name() { #{{{
+  local FILE="$1"
+  [[ ! -f "$FILE" ]] && return
+  local DIR=$(dirname $(readlink -f "$FILE"))
+  local BASENAME=$(basename $(readlink -f "$FILE"))
+
+  echo "${DIR}/${BASENAME%.*}_`date '+%Y%m%d-%H%M%S'`.${BASENAME##*.}"
 }
 #}}}
 
@@ -234,8 +267,19 @@ FUNC_NAME="$3"
 #}}}
 
 #- Main process ----------------------------------------------------------------
-TMP=`__make_tmp`
-_import_function "$FROM" "$TO" "$FUNC_NAME" "$TMP"
-_backup "${FROM}" && mv -v "${TMP}" "${FROM}"
+
+# create backup
+local BACKUP=`__make_backup_name "${TO}"`
+mv "${TO}" "${BACKUP}"
+cp -p "${BACKUP}" "${TO}"
+
+_import "$FROM" "$TO"
+RESULT=$?
+if [[ "${RESULT}" -eq 0 ]]; then
+  echo -e "Backuped to ${BACKUP}"
+else
+  # restore backup
+  mv "${BACKUP}" "${TO}"
+fi
 
 # vim: ts=2 sw=2 sts=2 et nu foldmethod=marker
