@@ -5,14 +5,6 @@
 __SCRIPT_BASE=`echo $(cd $(dirname $0); pwd)`
 __SCRIPT_NAME=`basename $0`
 
-_DRY_RUN=
-_SILENT=
-
-#-------------------------------------------------------------------------------
-#- global variables ------------------------------------------------------------
-_FOO=
-_ARRAY=()
-
 #-------------------------------------------------------------------------------
 #- common functions ------------------------------------------------------------
 #{{{
@@ -134,7 +126,9 @@ __script_end_clean_tmp() { #{{{
 _usage() { #{{{
   [[ "$1" ]] && __show_error "$1"
   cat <<!!!
-usege : $__SCRIPT_NAME [-h]
+usege : $__SCRIPT_NAME [-l] [-o TARGET] [-h]
+          -l : list supported functions
+          -o : import target file
           -h : display usage
 !!!
   exit 1
@@ -203,29 +197,6 @@ _import_function() { #{{{
 }
 #}}}
 
-_import_file() { #{{{
-  local FROM="$1"
-  local TO="$2"
-  local TMP
-
-  local TMP_TO=`__make_tmp`
-  cat "${TO}" > ${TMP_TO}
-
-  echo -e "${C_CYAN}Import ${FROM} functions to ${TO}${C_OFF}"
-  while read FUNC; do
-    echo -en "  ${FROM}::${FUNC}"
-    TMP=`__make_tmp`
-    _import_function "${FROM}" "${TMP_TO}" "${FUNC}" "${TMP}"
-    if [[ $? -ne 0 ]]; then
-      echo -e " [${C_RED}FAILED${C_OFF}]"
-      return 1
-    fi
-    mv ${TMP} ${TMP_TO} && echo -e " [${C_GREEN}OK${C_OFF}]"
-  done < <(_list_function "${FROM}")
-  cat ${TMP_TO} > ${TO}
-}
-#}}}
-
 _list_function() { #{{{
   local FILE="$1"
   sed -nre 's|^[ \t]*(__[a-zA-Z0-9_-]+)\(\)[ \t]*\{.*|\1|p' "$FILE"
@@ -272,13 +243,12 @@ _list_functions() { #{{{
 }
 #}}}
 
-_do() { #{{{
+_exec() { #{{{
   local TO="$1"
   local SUCCESS=0
 
   local TARGET=`__make_tmp`
   cp -rp "${TO}" "${TARGET}" 
-  # TODO 処理対象は TARGET 全部成功したら TO をバックアップしてTARGET->TOにコピー
 
   local SRC=`__make_tmp`
   _list_library_files "${__SCRIPT_BASE}" | xargs cat > ${SRC}
@@ -290,7 +260,6 @@ _do() { #{{{
 
     if [[ "${F_TOP}" ]] && [[ "${F_BOTTOM}" ]]; then
       echo -e " [${C_GREEN}FOUND${C_OFF}]"
-      # TODO 置換するかを問い合わせ 2021/12/14 作業中
       local TMP=`__make_tmp`
       if _import_function ${SRC} "${TARGET}" "${FUNC_NAME}" "${TMP}"; then
         mv "${TMP}" "${TARGET}" && SUCCESS=$(( ${SUCCESS} + 1 ))
@@ -326,9 +295,12 @@ __setup_color
 
 #- Get options -----------------------------------------------------------------
 #{{{
-while getopts o:h OPT; do
+while getopts lo:h OPT; do
   case "$OPT" in
     o) TO="$OPTARG"
+      ;;
+    l) _list_functions
+      exit 0
       ;;
     h|\?) _usage
       ;;
@@ -345,48 +317,6 @@ IMPORT_FUNCS=("$@")
 
 #- Main process ----------------------------------------------------------------
 
-
-_do "$TO"
-
-exit 1
-
-RESULT=1
-
-for FUNC_DESC in "${IMPORT_FUNCS[@]}"; do
-  FROM=
-  FUNC=
-  if [[ "$FUNC_DESC" =~ .+::.+ ]]; then
-    FROM_NAME=`sed -re 's/(.+)::(.+)/\1/' <<<"${FUNC_DESC}"`
-    FUNC=`sed -re 's/(.+)::(.+)/\2/' <<<"${FUNC_DESC}"`
-  else
-    FROM="${FUNC_DESC}"
-  fi
-
-  FROM=`find ${__SCRIPT_BASE} -type f -name "${FROM_NAME}.sh" | head -n1`
-  if [[ -z "${FROM}" ]]; then
-    __show_error "File not found. : ${FROM_NAME}"
-    continue
-  fi
-
-  # do import
-  if [[ "$FUNC" == '*' ]]; then
-    # whole file
-    _import_file "$FROM" "$TO"
-  else
-    # only function
-# TODO
-    :
-  fi
-  echo ">>>${FROM} // ${FUNC}<<<"
-done
-
-#_import_file "$FROM" "$TO"
-#RESULT=$?
-if [[ "${RESULT}" -eq 0 ]]; then
-  echo -e "Backuped to ${BACKUP}"
-else
-  # restore backup
-  mv "${BACKUP}" "${TO}"
-fi
+_exec "$TO"
 
 # vim: ts=2 sw=2 sts=2 et nu foldmethod=marker
