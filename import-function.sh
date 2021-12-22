@@ -194,7 +194,7 @@ _import_function() { #{{{
     return 1
   fi
   if [[ -z "${T_TOP}" ]] || [[ -z "${T_BOTTOM}" ]]; then
-    __show_error "Function not found in ${TO} : ${FUNC_NAME}"
+    __show_error " Function not found in ${TO} : ${FUNC_NAME}"
     return 1
   fi
 
@@ -242,6 +242,82 @@ _make_backup_name() { #{{{
 }
 #}}}
 
+_find_library() { #{{{
+  local NAME="$1"
+  find ${__SCRIPT_BASE} -type f -name '${NAME}.sh'
+  return $?
+}
+#}}}
+
+_pickup_functions() { #{{{
+  # pickup function names which are import target candidates from specified file
+  local SRC="$1"
+  sed -nre 's|^[ \t]*(__[a-zA-Z0-9_-]+)\(\).*|\1|p' "$SRC"
+}
+#}}}
+
+_list_library_files() { #{{{
+  # find & list library script files from specified directory
+  local BASE_DIR="$1"
+  find ${BASE_DIR}  -mindepth 2 -type f -regextype posix-egrep -regex '.+/[a-z].+\.sh' | egrep -v '_(test|example)\.sh$'
+}
+#}}}
+
+_list_functions() { #{{{
+  local BASE_DIR="$1"
+  local LIBNAME
+  while read LIBNAME; do
+    _pickup_functions "$LIBNAME"
+  done < <(_list_library_files)
+}
+#}}}
+
+_do() { #{{{
+  local TO="$1"
+  local SUCCESS=0
+
+  local TARGET=`__make_tmp`
+  cp -rp "${TO}" "${TARGET}" 
+  # TODO 処理対象は TARGET 全部成功したら TO をバックアップしてTARGET->TOにコピー
+
+  local SRC=`__make_tmp`
+  _list_library_files "${__SCRIPT_BASE}" | xargs cat > ${SRC}
+
+  local FUNC_NAME
+  while read FUNC_NAME; do
+    echo -ne "${C_CYAN}Searching function...${C_OFF} : ${FUNC_NAME}"
+    read F_TOP F_BOTTOM < <(_search_func ${SRC} ${FUNC_NAME})
+
+    if [[ "${F_TOP}" ]] && [[ "${F_BOTTOM}" ]]; then
+      echo -e " [${C_GREEN}FOUND${C_OFF}]"
+      # TODO 置換するかを問い合わせ 2021/12/14 作業中
+      local TMP=`__make_tmp`
+      if _import_function ${SRC} "${TARGET}" "${FUNC_NAME}" "${TMP}"; then
+        mv "${TMP}" "${TARGET}" && SUCCESS=$(( ${SUCCESS} + 1 ))
+      else
+        __show_error "Failed to import ${FUNC_NAME} from ${SRC} to ${TO}"
+        break
+      fi
+    else
+      echo -e " [${C_YELLOW}NOT FOUND${C_OFF}]"
+    fi
+  done < <(_pickup_functions "$TO")
+
+
+  if [[ "${SUCCESS}" -gt 0 ]]; then
+    if diff -q "${TO}" "${TARGET}" > /dev/null; then
+      echo "${C_GREEN}Nothing changed.${C_OFF}"
+    else
+      local BACKUP=`_make_backup_name "${TO}"`
+      mv "${TO}" "${BACKUP}" && mv "${TARGET}" "${TO}"
+      echo "${C_GREEN}${SUCCESS} function(s) imported, previous file is backuped to ${BACKUP}.${C_OFF}"
+    fi
+  fi
+  [[ -f "${TARGET}" ]] && rm "${TARGET}"
+  [[ -f "${SRC}" ]] && rm "${SRC}"
+}
+#}}}
+
 #-------------------------------------------------------------------------------
 #- Main process ----------------------------------------------------------------
 #-------------------------------------------------------------------------------
@@ -250,31 +326,62 @@ __setup_color
 
 #- Get options -----------------------------------------------------------------
 #{{{
-while getopts h OPT; do
+while getopts o:h OPT; do
   case "$OPT" in
+    o) TO="$OPTARG"
+      ;;
     h|\?) _usage
       ;;
   esac
 done
 shift `expr $OPTIND - 1`
 
-FROM="$1"
-TO="$2"
-FUNC_NAME="$3"
 
-[[ ! -f "$FROM" ]] && __error_end "File not found. : ${FROM}"
+[[ -z "$TO" ]] && __error_end "Destination is not given."
 [[ ! -f "$TO" ]] && __error_end "File not found. : ${TO}"
+
+IMPORT_FUNCS=("$@")
 #}}}
 
 #- Main process ----------------------------------------------------------------
 
-# create backup
-local BACKUP=`__make_backup_name "${TO}"`
-mv "${TO}" "${BACKUP}"
-cp -p "${BACKUP}" "${TO}"
 
-_import "$FROM" "$TO"
-RESULT=$?
+_do "$TO"
+
+exit 1
+
+RESULT=1
+
+for FUNC_DESC in "${IMPORT_FUNCS[@]}"; do
+  FROM=
+  FUNC=
+  if [[ "$FUNC_DESC" =~ .+::.+ ]]; then
+    FROM_NAME=`sed -re 's/(.+)::(.+)/\1/' <<<"${FUNC_DESC}"`
+    FUNC=`sed -re 's/(.+)::(.+)/\2/' <<<"${FUNC_DESC}"`
+  else
+    FROM="${FUNC_DESC}"
+  fi
+
+  FROM=`find ${__SCRIPT_BASE} -type f -name "${FROM_NAME}.sh" | head -n1`
+  if [[ -z "${FROM}" ]]; then
+    __show_error "File not found. : ${FROM_NAME}"
+    continue
+  fi
+
+  # do import
+  if [[ "$FUNC" == '*' ]]; then
+    # whole file
+    _import_file "$FROM" "$TO"
+  else
+    # only function
+# TODO
+    :
+  fi
+  echo ">>>${FROM} // ${FUNC}<<<"
+done
+
+#_import_file "$FROM" "$TO"
+#RESULT=$?
 if [[ "${RESULT}" -eq 0 ]]; then
   echo -e "Backuped to ${BACKUP}"
 else
