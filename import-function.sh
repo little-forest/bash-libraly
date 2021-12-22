@@ -230,16 +230,17 @@ _pickup_functions() { #{{{
 _list_library_files() { #{{{
   # find & list library script files from specified directory
   local BASE_DIR="$1"
-  find ${BASE_DIR}  -mindepth 2 -type f -regextype posix-egrep -regex '.+/[a-z].+\.sh' | egrep -v '_(test|example)\.sh$'
+  find ${BASE_DIR} -mindepth 2 -type f -regextype posix-egrep -regex '.+/[a-z].+\.sh' | egrep -v '_(test|example)\.sh$'
 }
 #}}}
 
 _list_functions() { #{{{
   local BASE_DIR="$1"
-  local LIBNAME
+  local LIBNAME RELNAME
   while read LIBNAME; do
-    _pickup_functions "$LIBNAME"
-  done < <(_list_library_files)
+    RELNAME=`sed -Ee "s|^${__SCRIPT_BASE}/||" <<<"${LIBNAME}"`
+    _pickup_functions "$LIBNAME" | sed -Ee "s|^|${C_CYAN}${RELNAME}::${C_OFF}|"
+  done < <(_list_library_files "${__SCRIPT_BASE}" | sort)
 }
 #}}}
 
