@@ -9,8 +9,6 @@ __SCRIPT_NAME=`basename $0`
 #- common functions ------------------------------------------------------------
 #{{{
 __setup_color() { #{{{
-  [[ $# -gt 0 ]] && local MODE="$1" || local MODE=
-
   local I
   local COLOR_MAP=(\
     BLACK 0 MAROON 1 GREEN 2 OLIVE 3 NAVY 4 PURPLE 5 TEAL 6 SILVER 7 GREY 8 \
@@ -18,15 +16,11 @@ __setup_color() { #{{{
     MAGENTA 5 CYAN 6 PINK 218 ORANGE 214 DARK_ORANGE3 166 \
   )
 
-  if [[ "$MODE" == none ]]; then
-    # declare only empty variables to avoid errors when 'set -u' is specified.
-    for I in OFF BOLD REV UL; do
-      eval "C_${I}="
-    done
-    for ((I=0; I<${#COLOR_MAP[@]}; I+=2)); do
-      eval "C_${COLOR_MAP[$I]}=; C_B=${COLOR_MAP[$I]}=; C_U_${COLOR_MAP[$I]}=; C_R_${COLOR_MAP[$I]}=;"
-    done
-    return 0
+  # export color map when `__COLOR_MAP` is defined
+  [[ -v __COLOR_MAP ]] && __COLOR_MAP=("${COLOR_MAP[@]}")
+
+  if [[ $- == *u* ]] && [[ `type -t __setup_color_prepare_empty` == 'function' ]]; then
+    __setup_color_prepare_empty ${COLOR_MAP[@]}
   fi
 
   C_OFF=`tput sgr0`   # Reset attribute
@@ -41,20 +35,6 @@ __setup_color() { #{{{
     eval "C_U_${COLOR_MAP[$I]}=\`tput smul\`\`tput setaf ${COLOR_MAP[(($I + 1))]}\`"
     eval "C_R_${COLOR_MAP[$I]}=\`tput bold\`\`tput rev\`\`tput setaf ${COLOR_MAP[(($I + 1))]}\`"
   done
-
-  # show examples (you can delete this)
-  if [[ "$MODE" == show ]]; then
-    for ((I=0; I<${#COLOR_MAP[@]}; I+=2)); do
-      printf "%3d : " ${COLOR_MAP[(($I + 1))]}  
-      eval "echo -en \"\${C_${COLOR_MAP[$I]}}C_${COLOR_MAP[$I]}\${C_OFF}\""
-      tput hpa 24
-      eval "echo -en \"\${C_B_${COLOR_MAP[$I]}}C_B_${COLOR_MAP[$I]}\${C_OFF}\""
-      tput hpa 48
-      eval "echo -en \"\${C_R_${COLOR_MAP[$I]}} C_R_${COLOR_MAP[$I]} \${C_OFF}\""
-      tput hpa 72
-      eval "echo -e \"\${C_U_${COLOR_MAP[$I]}}C_U_${COLOR_MAP[$I]}\${C_OFF}\""
-    done
-  fi
 }
 #}}}
 
@@ -82,12 +62,17 @@ __show_info() { #{{{
 #}}}
 
 __show_error() { #{{{
-  echo -e "[${C_RED} ERROR ${C_OFF}] $*" >&2
+  echo -e "[${C_RED}ERROR${C_OFF}] $*" >&2
 }
 #}}}
 
 __error_end() { #{{{
   __show_error "$*"; exit 1
+}
+#}}}
+
+__move_col() { #{{{
+  tput hpa "$1"
 }
 #}}}
 
@@ -142,8 +127,12 @@ _search_func() { #{{{
 
   local TOP=`egrep -n "^${FUNC_NAME}\(\)" ${FILE_NAME} | sed -re "${LINENUM_CMD}"`
   [[ -z "$TOP" ]] && return 1
+  if [[ `echo "${TOP}" | wc -l` -gt 1 ]]; then
+    __show_error "Duplicated functions are detected. : ${FUNC_NAME}"
+    return 1
+  fi
 
-  local BOTTOM=`sed -e "1,${TOP}d" ${FILE_NAME} | egrep -n "^}$" | head -n1 | sed -re "${LINENUM_CMD}"`
+  local BOTTOM=`sed -e "1,${TOP}d" "${FILE_NAME}" | egrep -n "^}$" | head -n1 | sed -re "${LINENUM_CMD}"`
   [[ -z "$BOTTOM" ]] && return 1
   BOTTOM=$(( ${BOTTOM} + ${TOP} ))
 
@@ -260,7 +249,7 @@ _exec() { #{{{
     read F_TOP F_BOTTOM < <(_search_func ${SRC} ${FUNC_NAME})
 
     if [[ "${F_TOP}" ]] && [[ "${F_BOTTOM}" ]]; then
-      echo -e " [${C_GREEN}FOUND${C_OFF}]"
+      __move_col 60; echo -e "[${C_GREEN}FOUND${C_OFF}]"
       local TMP=`__make_tmp`
       if _import_function ${SRC} "${TARGET}" "${FUNC_NAME}" "${TMP}"; then
         mv "${TMP}" "${TARGET}" && SUCCESS=$(( ${SUCCESS} + 1 ))
@@ -269,7 +258,7 @@ _exec() { #{{{
         break
       fi
     else
-      echo -e " [${C_YELLOW}NOT FOUND${C_OFF}]"
+      __move_col 60; echo -e "[${C_YELLOW}NOT FOUND${C_OFF}]"
     fi
   done < <(_pickup_functions "$TO")
 
@@ -280,6 +269,7 @@ _exec() { #{{{
     else
       local BACKUP=`_make_backup_name "${TO}"`
       mv "${TO}" "${BACKUP}" && mv "${TARGET}" "${TO}"
+      chmod --reference "${BACKUP}" "${TO}"
       echo "${C_GREEN}${SUCCESS} function(s) imported, previous file is backuped to ${BACKUP}.${C_OFF}"
     fi
   fi
