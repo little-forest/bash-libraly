@@ -26,4 +26,22 @@ __script_end() { #{{{
 trap '__script_end' EXIT
 #}}}
 
+__confirm() { #{{{
+  local MSG="$1"
+  local CHAR
+  local RESULT
+  echo -n "$1 (y/n) "
+  while :;do
+    read -s -n 1 CHAR
+    case $CHAR in
+      y|Y) RESULT=0; break ;;
+      n|N) RESULT=1; break ;;
+      *) ;;
+    esac
+  done
+  echo $CHAR
+  return $RESULT
+}
+#}}}
+
 # vim: ts=2 sw=2 sts=2 et nu foldmethod=marker
