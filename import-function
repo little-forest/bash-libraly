@@ -1,4 +1,7 @@
 #!/bin/bash
+#===============================================================================
+# import-function
+#===============================================================================
 
 #-------------------------------------------------------------------------------
 #- common global variables -----------------------------------------------------
@@ -111,9 +114,8 @@ __script_end_clean_tmp() { #{{{
 _usage() { #{{{
   [[ "$1" ]] && __show_error "$1"
   cat <<!!!
-usege : $__SCRIPT_NAME [-l] [-o TARGET] [-h]
+usege : $__SCRIPT_NAME [-l] [-h] TARGET
           -l : list supported functions
-          -o : import target file
           -h : display usage
 !!!
   exit 1
@@ -286,10 +288,8 @@ __setup_color
 
 #- Get options -----------------------------------------------------------------
 #{{{
-while getopts lo:h OPT; do
+while getopts lh OPT; do
   case "$OPT" in
-    o) TO="$OPTARG"
-      ;;
     l) _list_functions
       exit 0
       ;;
@@ -299,11 +299,10 @@ while getopts lo:h OPT; do
 done
 shift `expr $OPTIND - 1`
 
+TO="$1"
 
 [[ -z "$TO" ]] && __error_end "Destination is not given."
 [[ ! -f "$TO" ]] && __error_end "File not found. : ${TO}"
-
-IMPORT_FUNCS=("$@")
 #}}}
 
 #- Main process ----------------------------------------------------------------
