@@ -106,6 +106,20 @@ __script_end_clean_tmp() { #{{{
 }
 #}}}
 
+__make_backup_name() { #{{{
+  local FILE="$1"
+  [[ ! -f "$FILE" ]] && return
+  local DIR=$(dirname $(readlink -f "$FILE"))
+  local BASENAME=$(basename $(readlink -f "$FILE"))
+
+  if [[ -z `echo "$FILE" | tr -dc .` ]]; then
+    echo "${DIR}/${BASENAME}_`date '+%Y%m%d-%H%M%S'`"
+  else
+    echo "${DIR}/${BASENAME%.*}_`date '+%Y%m%d-%H%M%S'`.${BASENAME##*.}"
+  fi
+}
+#}}}
+
 #}}}
 
 #-------------------------------------------------------------------------------
@@ -194,20 +208,6 @@ _list_function() { #{{{
 }
 #}}}
 
-_make_backup_name() { #{{{
-  local FILE="$1"
-  [[ ! -f "$FILE" ]] && return
-  local DIR=$(dirname $(readlink -f "$FILE"))
-  local BASENAME=$(basename $(readlink -f "$FILE"))
-
-  if [[ -z `echo "$FILE" | tr -dc .` ]]; then
-    echo "${DIR}/${BASENAME}_`date '+%Y%m%d-%H%M%S'`"
-  else
-    echo "${DIR}/${BASENAME%.*}_`date '+%Y%m%d-%H%M%S'`.${BASENAME##*.}"
-  fi
-}
-#}}}
-
 _find_library() { #{{{
   local NAME="$1"
   find ${__SCRIPT_BASE} -type f -name '${NAME}.sh'
@@ -273,7 +273,7 @@ _exec() { #{{{
     if diff -q "${TO}" "${TARGET}" > /dev/null; then
       echo "${C_GREEN}Nothing changed.${C_OFF}"
     else
-      local BACKUP=`_make_backup_name "${TO}"`
+      local BACKUP=`__make_backup_name "${TO}"`
       mv "${TO}" "${BACKUP}" && mv "${TARGET}" "${TO}"
       chmod --reference "${BACKUP}" "${TO}"
       echo "${C_GREEN}${SUCCESS} function(s) imported, previous file is backuped to ${BACKUP}.${C_OFF}"
