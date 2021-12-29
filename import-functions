@@ -128,8 +128,9 @@ __make_backup_name() { #{{{
 _usage() { #{{{
   [[ "$1" ]] && __show_error "$1"
   cat <<!!!
-usege : $__SCRIPT_NAME [-l] [-h] TARGET
+usege : $__SCRIPT_NAME [-l] [-h] [-L TARGET] [-o TARGET] [TARTGET_FUNCTION...]
           -l : list supported functions
+          -L : list target script's functions
           -h : display usage
 !!!
   exit 1
@@ -241,6 +242,8 @@ _list_functions() { #{{{
 
 _exec() { #{{{
   local TO="$1"
+  shift 1
+  local TARGET_FUNCTIONS=("$@")
   local SUCCESS=0
 
   local TARGET=`__make_tmp`
@@ -252,6 +255,17 @@ _exec() { #{{{
   local FUNC_NAME
   while read FUNC_NAME; do
     echo -ne "${C_CYAN}Searching function...${C_OFF} : ${FUNC_NAME}"
+
+    # when target function is specified,
+    # check if function is included in target functions
+    if [[ ${#TARGET_FUNCTIONS[@]} -gt 0 ]]; then
+      echo "${TARGET_FUNCTIONS[@]}" | tr " " "\n" | egrep -q "^${FUNC_NAME}$"
+      if [[ $? -ne 0 ]]; then
+        __move_col 60; echo -e "[${C_BLUE}SKIP${C_OFF}]"
+        continue
+      fi
+    fi
+
     read F_TOP F_BOTTOM < <(_search_func ${SRC} ${FUNC_NAME})
 
     if [[ "${F_TOP}" ]] && [[ "${F_BOTTOM}" ]]; then
@@ -284,6 +298,17 @@ _exec() { #{{{
 }
 #}}}
 
+_list_target_functions() { #{{{
+  local TARGET="$1"
+  [[ ! -f "$TARGET" ]] && __error_end "File not found. : ${TARGET}"
+  echo -e "${C_CYAN}${TARGET} functions${C_OFF}"
+  local F
+  while read F; do
+    echo "$F"
+  done < <(_pickup_functions "${TARGET}")
+}
+#}}}
+
 #-------------------------------------------------------------------------------
 #- Main process ----------------------------------------------------------------
 #-------------------------------------------------------------------------------
@@ -292,8 +317,13 @@ __setup_color
 
 #- Get options -----------------------------------------------------------------
 #{{{
-while getopts lh OPT; do
+while getopts o:L:lh OPT; do
   case "$OPT" in
+    o) TO="$OPTARG"
+      ;;
+    L) _list_target_functions "${OPTARG}"
+      exit $?
+      ;;
     l) _list_functions
       exit 0
       ;;
@@ -303,14 +333,15 @@ while getopts lh OPT; do
 done
 shift `expr $OPTIND - 1`
 
-TO="$1"
-
 [[ -z "$TO" ]] && __error_end "Destination is not given."
 [[ ! -f "$TO" ]] && __error_end "File not found. : ${TO}"
+
+FUNCTIONS=("$@")
 #}}}
+
 
 #- Main process ----------------------------------------------------------------
 
-_exec "$TO"
+_exec "$TO" "${FUNCTIONS[@]}"
 
 # vim: ts=2 sw=2 sts=2 et nu foldmethod=marker
