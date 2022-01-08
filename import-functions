@@ -128,7 +128,8 @@ __make_backup_name() { #{{{
 _usage() { #{{{
   [[ "$1" ]] && __show_error "$1"
   cat <<!!!
-usege : $__SCRIPT_NAME [-l] [-h] [-L TARGET] [-o TARGET] [TARTGET_FUNCTION...]
+usege : $__SCRIPT_NAME [-d] [-l] [-h] [-L TARGET] [-o TARGET] [TARTGET_FUNCTION...]
+          -d : dry-run
           -l : list supported functions
           -L : list target script's functions
           -h : display usage
@@ -168,15 +169,15 @@ _import() { #{{{
 
   # copy before function
   CMD="1,$(( ${TO_TOP} - 1 ))p"
-  sed -ne "${CMD}" ${TO} || __error_end "sed error1 : ${CMD}"
+  sed -ne "${CMD}" ${TO} || __error_end "sed error : ${CMD}"
 
   # import function
   CMD="${FROM_TOP},${FROM_BOTTOM}p"
-  sed -ne "${CMD}" ${FROM} || __error_end "sed error2 : ${CMD}"
+  sed -ne "${CMD}" ${FROM} || __error_end "sed error : ${CMD}"
 
   # copy after function
   CMD="$(( ${TO_BOTTOM} + 1 )),\$p"
-  sed -ne "${CMD}" ${TO} || __error_end "sed error3 : ${CMD}"
+  sed -ne "${CMD}" ${TO} || __error_end "sed error : ${CMD}"
 }
 #}}}
 
@@ -199,6 +200,37 @@ _import_function() { #{{{
   fi
 
   _import "${FROM}" "${F_TOP}" "${F_BOTTOM}" "${TO}" "${T_TOP}" "${T_BOTTOM}" > ${OUT_FILE}
+  return $?
+}
+#}}}
+
+_diff_function() { #{{{
+  local FROM="$1"
+  local TO="$2"
+  local FUNC_NAME="$3"
+  local DIFF_RESULT="$4"
+
+  read F_TOP F_BOTTOM < <(_search_func ${FROM} ${FUNC_NAME})
+  read T_TOP T_BOTTOM < <(_search_func ${TO} ${FUNC_NAME})
+  if [[ -z "${F_TOP}" ]] || [[ -z "${F_BOTTOM}" ]]; then
+    __show_error " Function not found in ${FROM} : ${FUNC_NAME}"
+    return 1
+  fi
+  if [[ -z "${T_TOP}" ]] || [[ -z "${T_BOTTOM}" ]]; then
+    __show_error " Function not found in ${TO} : ${FUNC_NAME}"
+    return 1
+  fi
+
+  local FUNC1=`__make_tmp`
+  local FUNC2=`__make_tmp`
+
+  CMD="${F_TOP},${F_BOTTOM}p"
+  sed -ne "${CMD}" ${FROM} > ${FUNC1} || __error_end "sed error : ${CMD}"
+
+  CMD="${T_TOP},${T_BOTTOM}p"
+  sed -ne "${CMD}" ${TO} > ${FUNC2} || __error_end "sed error : ${CMD}"
+
+  colordiff --color=always -u ${FUNC1} ${FUNC2} > ${DIFF_RESULT}
   return $?
 }
 #}}}
@@ -269,13 +301,33 @@ _exec() { #{{{
     read F_TOP F_BOTTOM < <(_search_func ${SRC} ${FUNC_NAME})
 
     if [[ "${F_TOP}" ]] && [[ "${F_BOTTOM}" ]]; then
-      __move_col 60; echo -e "[${C_GREEN}FOUND${C_OFF}]"
-      local TMP=`__make_tmp`
-      if _import_function ${SRC} "${TARGET}" "${FUNC_NAME}" "${TMP}"; then
-        mv "${TMP}" "${TARGET}" && SUCCESS=$(( ${SUCCESS} + 1 ))
+      __move_col 60; echo -en "[${C_GREEN}FOUND${C_OFF}]"
+
+      # diff
+      local DIFF_RESULT=`__make_tmp`
+      _diff_function "${SRC}" "${TO}" "${FUNC_NAME}" "${DIFF_RESULT}" 
+      if [[ $? -eq 0 ]]; then
+        echo -e " --> ${C_CYAN}UPDATED${C_OFF}"
+        continue
       else
-        __show_error "Failed to import ${FUNC_NAME} from ${SRC} to ${TO}"
-        break
+        echo
+        cat ${DIFF_RESULT}
+        echo
+        [[ "${_DRY_RUN}" == "yes" ]] && continue
+      fi
+
+      # do import
+      if [[ "${_DRY_RUN}" != "yes" ]]; then
+        local TMP=`__make_tmp`
+        if _import_function ${SRC} "${TARGET}" "${FUNC_NAME}" "${TMP}"; then
+          if mv "${TMP}" "${TARGET}"; then
+            SUCCESS=$(( ${SUCCESS} + 1 ))
+            echo "${C_GREEN}Updated${C_OFF}"
+          fi
+        else
+          __show_error "Failed to import ${FUNC_NAME} from ${SRC} to ${TO}"
+          break
+        fi
       fi
     else
       __move_col 60; echo -e "[${C_YELLOW}NOT FOUND${C_OFF}]"
@@ -317,8 +369,10 @@ __setup_color
 
 #- Get options -----------------------------------------------------------------
 #{{{
-while getopts o:L:lh OPT; do
+while getopts do:L:lh OPT; do
   case "$OPT" in
+    d) _DRY_RUN=yes
+      ;;
     o) TO="$OPTARG"
       ;;
     L) _list_target_functions "${OPTARG}"
