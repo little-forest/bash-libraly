@@ -3,10 +3,19 @@
 #-------------------------------------------------------------------------------
 #- common functions ------------------------------------------------------------
 __show_ok() { #{{{
+  #[[ -n "${__SILENT}" ]] && return
+  #[[ "$1" && "$1" -gt 0 ]] && echo -en "\\033[${1}G"
+  #echo -en "[${C_GREEN} OK ${C_OFF}"
+  #[[ -n "$2" ]] && echo "] $2" || echo "]"
+
   [[ -n "${__SILENT}" ]] && return
-  [[ "$1" && "$1" -gt 0 ]] && echo -en "\\033[${1}G"
-  echo -en "[${C_GREEN} OK ${C_OFF}"
-  [[ -n "$2" ]] && echo "] $2" || echo "]"
+  local COL
+  [[ ! "$1" =~ [0-9]+ ]] && COL="${__RES_COL}" || COL="$1" && shift 1
+  local MSG="$1"
+
+  [[ -n "${COL}" ]] && echo -en "\\033[${COL}G"
+  echo -en " [ ${C_GREEN}OK${C_OFF}"
+  [[ -n "${MSG}" ]] && echo " ] ${MSG}" || echo " ]"
 }
 #}}}
 
@@ -18,6 +27,18 @@ __show_info() { #{{{
 
 __show_error() { #{{{
   echo -e "[${C_RED}ERROR${C_OFF}] $*" >&2
+}
+#}}}
+
+__show_failed() { #{{{
+  [[ -n "${__SILENT}" ]] && return
+  local COL
+  [[ ! "$1" =~ [0-9]+ ]] && COL="${__RES_COL}" || COL="$1" && shift 1
+  local MSG="$1"
+
+  [[ -n "${COL}" ]] && echo -en "\\033[${COL}G"
+  echo -en " [ ${C_RED}FAILED${C_OFF}"
+  [[ -n "${MSG}" ]] && echo " ] ${MSG}" || echo " ]"
 }
 #}}}
 
