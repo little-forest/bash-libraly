@@ -41,4 +41,15 @@ __script_end_clean_tmp() { #{{{
 }
 #}}}
 
+__prepare_dir() { #{{{
+  local DIR="$1"
+  if [[ ! -d "$DIR" ]]; then
+    mkdir -p "$DIR"
+    [[ ! -d "$DIR" ]] && return 1
+    return 0
+  fi
+  return 0
+}
+#}}}
+
 # vim: ts=2 sw=2 sts=2 et nu foldmethod=marker
