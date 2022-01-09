@@ -5,7 +5,7 @@
 __show_ok() { #{{{
   [[ -n "${__SILENT}" ]] && return
   local COL
-  [[ ! "$1" =~ [0-9]+ ]] && COL="${__RES_COL}" || COL="$1" && shift 1
+  [[ ! "$1" =~ [0-9]+ ]] && COL="${__MSG_COL}" || COL="$1" && shift 1
   local MSG="$1"
 
   [[ -n "${COL}" ]] && echo -en "\\033[${COL}G"
@@ -28,7 +28,7 @@ __show_error() { #{{{
 __show_failed() { #{{{
   [[ -n "${__SILENT}" ]] && return
   local COL
-  [[ ! "$1" =~ [0-9]+ ]] && COL="${__RES_COL}" || COL="$1" && shift 1
+  [[ ! "$1" =~ [0-9]+ ]] && COL="${__MSG_COL}" || COL="$1" && shift 1
   local MSG="$1"
 
   [[ -n "${COL}" ]] && echo -en "\\033[${COL}G"
