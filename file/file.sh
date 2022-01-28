@@ -52,4 +52,16 @@ __prepare_dir() { #{{{
 }
 #}}}
 
+# Create a temporary file/directory for the environment.
+# No automatic deletion will be performed. But it is easy to use.
+__make_temp_simple() { #{{{
+  [[ "$1" == '-d' ]] && local MAKE_DIR="$1"
+  if [[ `uname` == Darwin || ! -d /dev/shm ]]; then
+    mktemp ${MAKE_DIR}
+  else
+    mktemp -p /dev/shm ${MAKE_DIR}
+  fi
+}
+#}}}
+
 # vim: ts=2 sw=2 sts=2 et nu foldmethod=marker
