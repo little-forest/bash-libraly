@@ -16,7 +16,7 @@ __setup_color() { #{{{
   local COLOR_MAP=(\
     BLACK 0 MAROON 1 GREEN 2 OLIVE 3 NAVY 4 PURPLE 5 TEAL 6 SILVER 7 GREY 8 \
     RED 9 LIME 10 YELLOW 11 BLUE 12 FUCHSIA 13 AQUA 14 WHITE 15 \
-    MAGENTA 5 CYAN 6 PINK 218 ORANGE 214 DARK_ORANGE3 166 \
+    MAGENTA 5 CYAN 6 MALIBU 74 PINK 218 ORANGE 214 DARK_ORANGE3 166 \
   )
 
   # export color map when `__COLOR_MAP` is defined
@@ -117,6 +117,24 @@ __make_backup_name() { #{{{
   else
     echo "${DIR}/${BASENAME%.*}_`date '+%Y%m%d-%H%M%S'`.${BASENAME##*.}"
   fi
+}
+#}}}
+
+__confirm() { #{{{
+  local MSG="$1"
+  local CHAR
+  local RESULT
+  echo -n "$1 (y/n) "
+  while :;do
+    read -s -n 1 CHAR
+    case $CHAR in
+      y|Y) RESULT=0; break ;;
+      n|N) RESULT=1; break ;;
+      *) ;;
+    esac
+  done
+  echo $CHAR
+  return $RESULT
 }
 #}}}
 
@@ -284,8 +302,9 @@ _exec() { #{{{
   local SRC=`__make_tmp`
   _list_library_files "${__SCRIPT_BASE}" | xargs cat > ${SRC}
 
+  exec 3< <(_pickup_functions "$TO")
   local FUNC_NAME
-  while read FUNC_NAME; do
+  while read FUNC_NAME 0<&3; do
     echo -ne "${C_CYAN}Searching function...${C_OFF} : ${FUNC_NAME}"
 
     # when target function is specified,
@@ -314,6 +333,10 @@ _exec() { #{{{
         cat ${DIFF_RESULT}
         echo
         [[ "${_DRY_RUN}" == "yes" ]] && continue
+        if ! __confirm "Import?"; then
+          echo "skip"
+          continue
+        fi
       fi
 
       # do import
@@ -332,7 +355,8 @@ _exec() { #{{{
     else
       __move_col 60; echo -e "[${C_YELLOW}NOT FOUND${C_OFF}]"
     fi
-  done < <(_pickup_functions "$TO")
+  done
+  exec 3<&-
 
 
   if [[ "${SUCCESS}" -gt 0 ]]; then
