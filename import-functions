@@ -248,7 +248,7 @@ _diff_function() { #{{{
   CMD="${T_TOP},${T_BOTTOM}p"
   sed -ne "${CMD}" ${TO} > ${FUNC2} || __error_end "sed error : ${CMD}"
 
-  colordiff --color=always -u ${FUNC1} ${FUNC2} > ${DIFF_RESULT}
+  colordiff --color=always -u ${FUNC2} ${FUNC1} > ${DIFF_RESULT}
   return $?
 }
 #}}}
