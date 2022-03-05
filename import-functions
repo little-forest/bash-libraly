@@ -157,6 +157,9 @@ usege : $__SCRIPT_NAME [-d] [-l] [-h] [-L TARGET] [-o TARGET] [TARTGET_FUNCTION.
 #}}}
 
 _search_func() { #{{{
+  # The function is identified by the following pattern
+  # Start :  ^<FUNCTION_NAME>()
+  # End   :  ^}$
   local FILE_NAME="$1"
   local FUNC_NAME="$2"
   local LINENUM_CMD='s/^([0-9]+):.*/\1/'
@@ -269,7 +272,7 @@ _find_library() { #{{{
 _pickup_functions() { #{{{
   # pickup function names which are import target candidates from specified file
   local SRC="$1"
-  sed -nre 's|^[ \t]*(__[a-zA-Z0-9_-]+)\(\).*|\1|p' "$SRC"
+  sed -nre 's|^[ \t]*(__[a-zA-Z0-9][a-zA-Z0-9_-]*)\(\).*|\1|p' "$SRC"
 }
 #}}}
 
