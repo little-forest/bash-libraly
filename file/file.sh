@@ -6,7 +6,7 @@ __make_backup_name() { #{{{
   local DIR=$(dirname $(readlink -f "$FILE"))
   local BASENAME=$(basename $(readlink -f "$FILE"))
 
-  if [[ -z `echo "$FILE" | tr -dc .` ]]; then
+  if [[ -z `echo "$BASENAME" | tr -dc .` ]]; then
     echo "${DIR}/${BASENAME}_`date '+%Y%m%d-%H%M%S'`"
   else
     echo "${DIR}/${BASENAME%.*}_`date '+%Y%m%d-%H%M%S'`.${BASENAME##*.}"
