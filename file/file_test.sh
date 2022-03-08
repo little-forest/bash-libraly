@@ -2,17 +2,8 @@
 
 __SCRIPT_BASE=`echo $(cd $(dirname $0); pwd)`
 
-. ${__SCRIPT_BASE}/../common/common.sh
+. ${__SCRIPT_BASE}/../test-common.sh
 . ${__SCRIPT_BASE}/file.sh
-
-setUp() {
-  SHUNIT_LOCALTMP=`mktemp -d -p /dev/shm`
-}
-
-tearDown() {
-  [[ -d "${SHUNIT_LOCALTMP}" ]] && rm -rf "${SHUNIT_LOCALTMP}" && SHUNIT_LOCALTMP=
-  return 0
-}
 
 test__make_backup_name_case1() { #{{{
   local TARGET="${SHUNIT_LOCALTMP}/test.txt"
