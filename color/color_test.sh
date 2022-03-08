@@ -2,9 +2,15 @@
 
 __SCRIPT_BASE=`echo $(cd $(dirname $0); pwd)`
 
-source ${__SCRIPT_BASE}/color.sh
+. ${__SCRIPT_BASE}/../test-common.sh
+. ${__SCRIPT_BASE}/color.sh
 
-___setup_color_show_examples() { #{{{
+test__setup_color() { #{{{
+  set -u
+
+  __COLOR_MAP=()
+  __setup_color
+
   for ((I=0; I<${#__COLOR_MAP[@]}; I+=2)); do
     printf "%3d : " ${__COLOR_MAP[(($I + 1))]}  
     eval "echo -en \"\${C_${__COLOR_MAP[$I]}}C_${__COLOR_MAP[$I]}\${C_OFF}\""
@@ -18,11 +24,6 @@ ___setup_color_show_examples() { #{{{
 }
 #}}}
 
-set -u
-
-__COLOR_MAP=()
-__setup_color
-
-___setup_color_show_examples
+. ${__SCRIPT_BASE}/../shunit2/shunit2
 
 # vim: ts=2 sw=2 sts=2 et nu foldmethod=marker
