@@ -64,4 +64,63 @@ __make_temp_simple() { #{{{
 }
 #}}}
 
+# Deletes files matching the pattern, except for the specified number of files.
+__rotate_files() { #{{{
+  local RETENTION="$1"
+  local PATTERN="$2"
+  local RESULT=0
+  local F CNT
+
+  ___do_rotate() {
+    local F="$1"
+    local MSG
+    if [[ ${_DRY_RUN} != 'yes' ]]; then
+      echo -n "  Deleting... $F"
+      MSG=`rm "$F" 2>&1`
+      if [[ $? -eq 0 ]]; then
+        __show_ok
+        return 0
+      else
+        echo -e "\n  [${C_RED}FAILED${C_OFF}] ${MSG}"
+        return 1
+      fi
+    else
+      echo "  will be deleted : $F"
+    fi
+  }
+
+  if [[ ! "${RETENTION}" =~ [0-9]+ ]]; then
+    __show_error "Invalid retention : ${RETENTION}"
+    return 1
+  fi
+
+  if [[ ! "$PATTERN" =~ ^(.+)/([^/]+)$ ]]; then
+    __show_error "Invalid pattern : ${PATTERN}"
+    return 1
+  fi
+  local BASEDIR="${BASH_REMATCH[1]}"
+  local FILE_PATTERN="${BASH_REMATCH[2]}"
+
+  local FIND_ARGS=("${BASEDIR}" -mindepth 1 -maxdepth 1 -type f -name "${FILE_PATTERN}")
+
+  # delete empty files
+  __show_info "Deleting empty files..."
+  CNT=0
+  while read F; do
+    ___do_rotate "$F" && CNT=$(( $CNT + 1 )) || RESULT=1
+  done < <(find ${FIND_ARGS[@]} -size 0c)
+  [[ "$CNT" -eq 0 ]] && echo "  nothing to delete."
+
+  # delete old files
+  __show_info "Deleting old files..."
+  CNT=0
+  while read F; do
+    ___do_rotate "$F" && CNT=$(( $CNT + 1 )) || RESULT=1
+  done < <(find ${FIND_ARGS[@]} -size +1c | sort -n | head --lines=-${RETENTION})
+  [[ "$CNT" -eq 0 ]] && echo "  nothing to delete."
+
+  return $RESULT
+}
+#}}}
+
 # vim: ts=2 sw=2 sts=2 et nu foldmethod=marker
