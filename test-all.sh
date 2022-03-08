@@ -23,7 +23,7 @@ _prepare() {
 _test_all() {
   while read FILE; do
     $FILE
-  done < <(find . -mindepth 2 -name 'test_*.sh')
+  done < <(find ${__SCRIPT_BASE} -path '*/shunit2' -prune -o -name '*_test.sh' -print)
 }
 
 _prepare
