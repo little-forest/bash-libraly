@@ -20,7 +20,9 @@ __get_tmp_base() { #{{{
     [[ -d /dev/shm ]] && TMP_BASE=/dev/shm/ || TMP_BASE=/tmp/
   fi
   TMP_BASE="${TMP_BASE}tmp.`basename $0`.$$"
-  [[ ! -d "$TMP_BASE" ]] && mkdir "$TMP_BASE"
+  if [[ `uname` != Darwin ]] && [[ ! -d "$TMP_BASE" ]]; then
+    mkdir "$TMP_BASE"
+  fi
   echo "$TMP_BASE"
 }
 #}}}
