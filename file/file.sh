@@ -37,7 +37,13 @@ __make_tmp() { #{{{
 
 __script_end_clean_tmp() { #{{{
   local TMP_BASE=`__get_tmp_base`
-  [[ -d "$TMP_BASE" ]] && rm -rf "${TMP_BASE}"
+  if [[ `uname` != Darwin ]]; then
+    [[ -d "$TMP_BASE" ]] && rm -rf "${TMP_BASE}"
+  else
+    local T=`mktemp`
+    local TMP_ROOT=`dirname "$T"`
+    rm -rf $T ${TMP_ROOT}/${TMP_BASE}* 2> /dev/null
+  fi
 }
 #}}}
 
@@ -65,6 +71,7 @@ __make_temp_simple() { #{{{
 #}}}
 
 # Deletes files matching the pattern, except for the specified number of files.
+#   Global parameter : __DRY_RUN
 __rotate_files() { #{{{
   local RETENTION="$1"
   local PATTERN="$2"
@@ -74,7 +81,7 @@ __rotate_files() { #{{{
   ___do_rotate() {
     local F="$1"
     local MSG
-    if [[ ${_DRY_RUN} != 'yes' ]]; then
+    if [[ ${__DRY_RUN} != 'yes' ]]; then
       echo -n "  Deleting... $F"
       MSG=`rm "$F" 2>&1`
       if [[ $? -eq 0 ]]; then
