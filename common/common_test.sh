@@ -29,7 +29,6 @@ test__show_ok() { #{{{
 }
 #}}}
 
-
 test__show_failed() { #{{{
   __MSG_COL=
 
@@ -51,6 +50,25 @@ test__show_failed() { #{{{
 
   echo -n "fail test6"
   __show_failed message
+}
+#}}}
+
+test__progress() { #{{{
+  __setup_showing_progress
+
+  for I in {1..5}; do
+    if [[ $I == 2 ]]; then
+      __show_progress_warn "warning test"
+    fi
+    if [[ $I == 4 ]]; then
+      __show_progress_error "error test"
+    fi
+
+    __show_progress "__show_progress : $I"
+    sleep 0.3
+  done
+
+  __teardown_showing_progress
 }
 #}}}
 

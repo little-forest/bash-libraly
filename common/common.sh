@@ -74,4 +74,51 @@ __confirm() { #{{{
 }
 #}}}
 
+__setup_showing_progress() { #{{{
+  [[ -z "${__VERBOSE}" && -n "${__DRY_RUN}" ]] && return 0
+  # hide cursor
+  printf "\x1b[?25l"
+}
+#}}}
+
+__teardown_showing_progress() { #{{{
+  [[ -z "${__VERBOSE}" && -n "${__DRY_RUN}" ]] && return 0
+
+  # delete line after cursor
+  printf "\x1b[0K"
+
+  # show cursor
+  printf "\x1b[?25h"
+}
+#}}}
+
+__show_progress() { #{{{
+  [[ -z "${__VERBOSE}" && -n "${__DRY_RUN}" ]] && return 0
+
+  # delete line after cursor
+  printf "\x1b[0K"
+
+  printf "$1"
+
+  # move to top of line
+  printf "\x1b[1G"
+}
+#}}}
+
+__show_progress_warn() { #{{{
+  # insert line
+  printf "\n"
+  printf "\x1b[1F"
+  printf "[${C_YELLOW}WARN${C_OFF}] $1\n" >&2
+}
+#}}}
+
+__show_progress_error() { #{{{
+  # insert line
+  printf "\n"
+  printf "\x1b[1F"
+  printf "[${C_RED}ERROR${C_OFF}] $1\n" >&2
+}
+#}}}
+
 # vim: ts=2 sw=2 sts=2 et nu foldmethod=marker
