@@ -52,9 +52,13 @@ trap '__script_end' EXIT
 
 __show_ok() { #{{{
   [[ -n "${__SILENT}" ]] && return
-  [[ "$1" && "$1" -gt 0 ]] && echo -en "\\033[${1}G"
-  echo -en "[${C_GREEN} OK ${C_OFF}"
-  [[ -n "$2" ]] && echo "] $2" || echo "]"
+  local COL
+  [[ ! "$1" =~ [0-9]+ ]] && COL="${__MSG_COL}" || COL="$1" && shift 1
+  local MSG="$1"
+
+  [[ -n "${COL}" ]] && echo -en "\\033[${COL}G"
+  echo -en " [ ${C_GREEN}OK${C_OFF}"
+  [[ -n "${MSG}" ]] && echo " ] ${MSG}" || echo " ]"
 }
 #}}}
 
@@ -85,7 +89,9 @@ __get_tmp_base() { #{{{
     [[ -d /dev/shm ]] && TMP_BASE=/dev/shm/ || TMP_BASE=/tmp/
   fi
   TMP_BASE="${TMP_BASE}tmp.`basename $0`.$$"
-  [[ ! -d "$TMP_BASE" ]] && mkdir "$TMP_BASE"
+  if [[ `uname` != Darwin ]] && [[ ! -d "$TMP_BASE" ]]; then
+    mkdir "$TMP_BASE"
+  fi
   echo "$TMP_BASE"
 }
 #}}}
@@ -102,7 +108,13 @@ __make_tmp() { #{{{
 
 __script_end_clean_tmp() { #{{{
   local TMP_BASE=`__get_tmp_base`
-  [[ -d "$TMP_BASE" ]] && rm -rf "${TMP_BASE}"
+  if [[ `uname` != Darwin ]]; then
+    [[ -d "$TMP_BASE" ]] && rm -rf "${TMP_BASE}"
+  else
+    local T=`mktemp`
+    local TMP_ROOT=`dirname "$T"`
+    rm -rf $T ${TMP_ROOT}/${TMP_BASE}* 2> /dev/null
+  fi
 }
 #}}}
 
@@ -112,7 +124,7 @@ __make_backup_name() { #{{{
   local DIR=$(dirname $(readlink -f "$FILE"))
   local BASENAME=$(basename $(readlink -f "$FILE"))
 
-  if [[ -z `echo "$FILE" | tr -dc .` ]]; then
+  if [[ -z `echo "$BASENAME" | tr -dc .` ]]; then
     echo "${DIR}/${BASENAME}_`date '+%Y%m%d-%H%M%S'`"
   else
     echo "${DIR}/${BASENAME%.*}_`date '+%Y%m%d-%H%M%S'`.${BASENAME##*.}"
