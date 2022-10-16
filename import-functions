@@ -20,7 +20,7 @@ __setup_color() { #{{{
   )
 
   # export color map when `__COLOR_MAP` is defined
-  [[ -v __COLOR_MAP ]] && __COLOR_MAP=("${COLOR_MAP[@]}")
+  [[ ${__COLOR_MAP+dummy} ]] && __COLOR_MAP=("${COLOR_MAP[@]}")
 
   if [[ $- == *u* ]] && [[ `type -t __setup_color_prepare_empty` == 'function' ]]; then
     __setup_color_prepare_empty ${COLOR_MAP[@]}
